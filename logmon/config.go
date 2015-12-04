@@ -8,12 +8,13 @@ import (
 )
 
 type Configuration struct {
-	Recipient string   `json:"recipient"`
-	Sender    string   `json:"sender"`
-	Smtp      string   `json:"smtp"`
-	Subject   string   `json:"subject"`
-	Logs      []string `json:"logs"`
-	Db        string   `json:"db"`
+	Recipient  string   `json:"recipient"`
+	Sender     string   `json:"sender"`
+	Smtp       string   `json:"smtp"`
+	Subject    string   `json:"subject"`
+	Logs       []string `json:"logs"`
+	Db         string   `json:"db"`
+	ErrorToken string   `json:"errortoken"`
 }
 
 func NewConfiguration(stdin bool, filepath string) *Configuration {
@@ -41,7 +42,9 @@ func (config *Configuration) LogMonitor() *LogMonitor {
 func parseConfig(reader io.Reader) *Configuration {
 	decoder := json.NewDecoder(reader)
 
-	config := &Configuration{}
+	config := &Configuration{
+		ErrorToken: "ERROR",
+	}
 
 	if err := decoder.Decode(config); err != nil {
 		log.Fatal("error parsing config", err.Error())

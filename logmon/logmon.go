@@ -2,10 +2,10 @@ package logmon
 
 import (
 	"bytes"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kalafut/imohash"
 )
@@ -15,17 +15,15 @@ type LogMonitor struct {
 	db     *Database
 }
 
-type LogFile struct {
-	Filename string
-	file     *os.File
-	offset   uint64
-}
-
 func NewLogMonitor(config *Configuration) *LogMonitor {
 	return &LogMonitor{
 		config: config,
 		db:     NewDatabase(config),
 	}
+}
+
+func (lm *LogMonitor) IsError(text string) bool {
+	return strings.Index(text, lm.config.ErrorToken) >= 0
 }
 
 func (lm *LogMonitor) Logs() []*LogFile {
@@ -37,26 +35,17 @@ func (lm *LogMonitor) Logs() []*LogFile {
 			log.Println("error globbing", glob, err.Error())
 		} else {
 			for _, logpath := range logs {
-				file, err := os.Open(logpath)
-
-				if err != nil {
-					log.Println("error opening log", logpath, err.Error())
-					continue
-				}
-
 				prev, err := lm.db.getHash(logpath)
 				if err != nil {
 					log.Println("error getting hash", logpath, err.Error())
 					continue
 				}
 
-				fileBytes, err := ioutil.ReadAll(file)
+				curr, err := imohash.SumFile(logpath)
 				if err != nil {
-					log.Println("error reading", logpath)
+					log.Println("error summing file", logpath, err.Error())
 					continue
 				}
-
-				curr := imohash.Sum(fileBytes)
 
 				if bytes.Compare(prev, curr[:]) != 0 {
 					offset, err := lm.db.getOffset(logpath)
@@ -65,12 +54,22 @@ func (lm *LogMonitor) Logs() []*LogFile {
 						continue
 					}
 
-					log.Println(logpath, "has changed")
+					log.Println("detected changes", offset, logpath)
+
+					file, err := os.Open(logpath)
+					if err != nil {
+						log.Println("error opening log", logpath, err.Error())
+						continue
+					}
+
+					if _, err := file.Seek(int64(offset), os.SEEK_SET); err != nil {
+						log.Println("cannot seek", logpath, err.Error())
+						continue
+					}
 
 					logfiles = append(logfiles, &LogFile{
-						Filename: logpath,
-						file:     file,
-						offset:   offset,
+						file:    file,
+						monitor: lm,
 					})
 				}
 			}
@@ -78,18 +77,6 @@ func (lm *LogMonitor) Logs() []*LogFile {
 	}
 
 	return logfiles
-}
-
-func NewLogFile(path string, offset uint64) (*LogFile, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-
-	return &LogFile{
-		file:   file,
-		offset: offset,
-	}, nil
 }
 
 func (lm *LogMonitor) Close() {
