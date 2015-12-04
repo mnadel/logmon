@@ -22,6 +22,10 @@ func NewLogMonitor(config *Configuration) *LogMonitor {
 	}
 }
 
+func (lm *LogMonitor) updateDb(filepath string, offset uint64, hash []byte) error {
+	return lm.db.updateFile(filepath, offset, hash)
+}
+
 func (lm *LogMonitor) IsError(text string) bool {
 	return strings.Index(text, lm.config.ErrorToken) >= 0
 }
@@ -70,7 +74,10 @@ func (lm *LogMonitor) Logs() []*LogFile {
 					logfiles = append(logfiles, &LogFile{
 						file:    file,
 						monitor: lm,
+						hash:    curr[:],
 					})
+				} else {
+					log.Println("no changes", logpath)
 				}
 			}
 		}

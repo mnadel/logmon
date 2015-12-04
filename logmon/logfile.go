@@ -9,6 +9,7 @@ import (
 type LogFile struct {
 	file    *os.File
 	monitor *LogMonitor
+	hash    []byte
 }
 
 type LogError struct {
@@ -22,6 +23,15 @@ func (f *LogFile) Filename() string {
 
 func (f *LogFile) Close() {
 	f.file.Close()
+}
+
+func (f *LogFile) Complete() {
+	log.Println("updating", f.Filename())
+
+	err := f.monitor.updateDb(f.Filename(), f.Offset(), f.hash)
+	if err != nil {
+		log.Println("error updating", f.Filename(), err.Error())
+	}
 }
 
 func (f *LogFile) Offset() uint64 {

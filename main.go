@@ -38,6 +38,8 @@ func main() {
 
 			f.PublishErrors(ch)
 
+			f.Complete()
+
 			wg.Done()
 		}(logfile)
 	}
@@ -47,7 +49,15 @@ func main() {
 		close(ch)
 	}()
 
-	for i := range ch {
-		log.Printf("%v", i)
+	errors := make(map[string][]string)
+
+	for err := range ch {
+		if errs, ok := errors[err.Filename]; ok {
+			errs = append(errs, err.Text)
+		} else {
+			errors[err.Filename] = []string{err.Text}
+		}
 	}
+
+	log.Printf("%v", errors)
 }

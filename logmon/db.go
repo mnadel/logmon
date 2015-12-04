@@ -6,7 +6,6 @@ import (
 	"log"
 
 	"github.com/boltdb/bolt"
-	"github.com/kalafut/imohash"
 )
 
 type Database struct {
@@ -45,13 +44,17 @@ func (db *Database) Close() {
 	db.boltdb.Close()
 }
 
-func (db *Database) setHash(path string, contents []byte) error {
+func (db *Database) updateFile(path string, offset uint64, hash []byte) error {
 	return db.boltdb.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("hashes"))
+		hashBucket := tx.Bucket([]byte("hashes"))
+		hashBucket.Put([]byte(path), hash)
 
-		hash := imohash.Sum(contents)
+		offsetBucket := tx.Bucket([]byte("offsets"))
 
-		bucket.Put([]byte(path), hash[:])
+		buf := make([]byte, 10)
+		binary.PutUvarint(buf, offset)
+
+		offsetBucket.Put([]byte(path), buf)
 
 		return nil
 	})
@@ -69,19 +72,6 @@ func (db *Database) getHash(path string) ([]byte, error) {
 	})
 
 	return hash, err
-}
-
-func (db *Database) setOffset(path string, offset uint64) error {
-	return db.boltdb.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte("offsets"))
-
-		var buf []byte
-		binary.PutUvarint(buf, offset)
-
-		bucket.Put([]byte(path), buf)
-
-		return nil
-	})
 }
 
 func (db *Database) getOffset(path string) (uint64, error) {
