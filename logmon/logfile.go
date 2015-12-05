@@ -26,18 +26,20 @@ func (f *LogFile) Close() {
 }
 
 func (f *LogFile) Complete() {
-	log.Println("updating", f.Filename())
+	log.Println("updating:", f.Filename())
 
 	err := f.monitor.updateDb(f.Filename(), f.Offset(), f.hash)
 	if err != nil {
-		log.Println("error updating", f.Filename(), err.Error())
+		log.Println("error updating:", f.Filename(), err.Error())
 	}
+
+	f.Close()
 }
 
 func (f *LogFile) Offset() uint64 {
 	pos, err := f.file.Seek(0, os.SEEK_CUR)
 	if err != nil {
-		log.Println("error getting offset", f.Filename(), err.Error())
+		log.Println("error getting offset:", f.Filename(), err.Error())
 	}
 
 	return uint64(pos)
@@ -46,7 +48,7 @@ func (f *LogFile) Offset() uint64 {
 func (f *LogFile) PublishErrors(ch chan<- *LogError) {
 	scanner := bufio.NewScanner(f.file)
 
-	log.Println("scanning", f.Filename())
+	log.Println("scanning:", f.Filename())
 
 	for scanner.Scan() {
 		line := scanner.Text()

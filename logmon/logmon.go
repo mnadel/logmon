@@ -22,12 +22,13 @@ func NewLogMonitor(config *Configuration) *LogMonitor {
 	}
 }
 
-func (lm *LogMonitor) updateDb(filepath string, offset uint64, hash []byte) error {
-	return lm.db.updateFile(filepath, offset, hash)
-}
-
 func (lm *LogMonitor) IsError(text string) bool {
-	return strings.Index(text, lm.config.ErrorToken) >= 0
+	for _, tok := range lm.config.ErrorTokens {
+		if strings.Index(text, tok) >= 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (lm *LogMonitor) Logs() []*LogFile {
@@ -36,38 +37,38 @@ func (lm *LogMonitor) Logs() []*LogFile {
 	for _, glob := range lm.config.Logs {
 		logs, err := filepath.Glob(glob)
 		if err != nil {
-			log.Println("error globbing", glob, err.Error())
+			log.Println("error globbing:", glob, err.Error())
 		} else {
 			for _, logpath := range logs {
 				prev, err := lm.db.getHash(logpath)
 				if err != nil {
-					log.Println("error getting hash", logpath, err.Error())
+					log.Println("error getting hash:", logpath, err.Error())
 					continue
 				}
 
 				curr, err := imohash.SumFile(logpath)
 				if err != nil {
-					log.Println("error summing file", logpath, err.Error())
+					log.Println("error summing file:", logpath, err.Error())
 					continue
 				}
 
 				if bytes.Compare(prev, curr[:]) != 0 {
 					offset, err := lm.db.getOffset(logpath)
 					if err != nil {
-						log.Println("error getting offset", logpath, err.Error())
+						log.Println("error getting offset:", logpath, err.Error())
 						continue
 					}
 
-					log.Println("detected changes", offset, logpath)
+					log.Println("detected changes:", offset, logpath)
 
 					file, err := os.Open(logpath)
 					if err != nil {
-						log.Println("error opening log", logpath, err.Error())
+						log.Println("error opening log:", logpath, err.Error())
 						continue
 					}
 
 					if _, err := file.Seek(int64(offset), os.SEEK_SET); err != nil {
-						log.Println("cannot seek", logpath, err.Error())
+						log.Println("cannot seek:", logpath, err.Error())
 						continue
 					}
 
@@ -77,7 +78,7 @@ func (lm *LogMonitor) Logs() []*LogFile {
 						hash:    curr[:],
 					})
 				} else {
-					log.Println("no changes", logpath)
+					log.Println("no changes:", logpath)
 				}
 			}
 		}
@@ -88,4 +89,8 @@ func (lm *LogMonitor) Logs() []*LogFile {
 
 func (lm *LogMonitor) Close() {
 	lm.db.Close()
+}
+
+func (lm *LogMonitor) updateDb(filepath string, offset uint64, hash []byte) error {
+	return lm.db.updateFile(filepath, offset, hash)
 }

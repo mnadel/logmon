@@ -27,19 +27,18 @@ func main() {
 	var wg sync.WaitGroup
 	ch := make(chan *logmon.LogError)
 
-	for _, logfile := range monitor.Logs() {
-		log.Println("queueing", logfile.Filename())
+	logfiles := monitor.Logs()
+
+	files := make([]*logmon.LogFile, len(logfiles))
+
+	for _, logfile := range logfiles {
+		log.Println("queueing:", logfile.Filename())
 
 		wg.Add(1)
 		go func(f *logmon.LogFile) {
-			defer f.Close()
-
-			log.Println("processing", f.Filename())
-
+			log.Println("processing:", f.Filename())
+			files = append(files, f)
 			f.PublishErrors(ch)
-
-			f.Complete()
-
 			wg.Done()
 		}(logfile)
 	}
@@ -59,5 +58,15 @@ func main() {
 		}
 	}
 
-	log.Printf("%v", errors)
+	if len(errors) > 0 {
+		log.Printf("alerting: %v", errors)
+
+		if err := config.NewEmailAlerter().SendAlert(errors); err != nil {
+			log.Fatalln("error alerting:", err.Error())
+		}
+	}
+
+	for _, f := range files {
+		f.Complete()
+	}
 }

@@ -16,7 +16,7 @@ type Database struct {
 func NewDatabase(config *Configuration) *Database {
 	db, err := bolt.Open(config.Db, 0600, nil)
 	if err != nil {
-		log.Fatal("error opening db", config.Db, err.Error())
+		log.Fatal("error opening db:", config.Db, err.Error())
 	}
 
 	err = db.Update(func(tx *bolt.Tx) error {
@@ -31,7 +31,7 @@ func NewDatabase(config *Configuration) *Database {
 	})
 
 	if err != nil {
-		log.Fatal("error initializing database", err.Error())
+		log.Fatal("error initializing database:", err.Error())
 	}
 
 	return &Database{

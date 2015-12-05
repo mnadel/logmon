@@ -8,13 +8,10 @@ import (
 )
 
 type Configuration struct {
-	Recipient  string   `json:"recipient"`
-	Sender     string   `json:"sender"`
-	Smtp       string   `json:"smtp"`
-	Subject    string   `json:"subject"`
-	Logs       []string `json:"logs"`
-	Db         string   `json:"db"`
-	ErrorToken string   `json:"errortoken"`
+	AlertConfig map[string]string `json:"alert"`
+	Db          string            `json:"db"`
+	Logs        []string          `json:"logs"`
+	ErrorTokens []string          `json:"toks"`
 }
 
 func NewConfiguration(stdin bool, filepath string) *Configuration {
@@ -26,13 +23,22 @@ func NewConfiguration(stdin bool, filepath string) *Configuration {
 		file, err := os.Open(filepath)
 
 		if err != nil {
-			log.Fatal("error reading file", filepath, err.Error())
+			log.Fatal("error reading file:", filepath, err.Error())
 		}
 
 		config = parseConfig(file)
 	}
 
 	return config
+}
+
+func (config *Configuration) NewEmailAlerter() Alerter {
+	return &EmailAlerter{
+		From:    config.AlertConfig["from"],
+		To:      config.AlertConfig["to"],
+		Smtp:    config.AlertConfig["smtp"],
+		Subject: config.AlertConfig["subject"],
+	}
 }
 
 func (config *Configuration) LogMonitor() *LogMonitor {
@@ -43,11 +49,11 @@ func parseConfig(reader io.Reader) *Configuration {
 	decoder := json.NewDecoder(reader)
 
 	config := &Configuration{
-		ErrorToken: "ERROR",
+		ErrorTokens: []string{"ERROR", "FATAL"},
 	}
 
 	if err := decoder.Decode(config); err != nil {
-		log.Fatal("error parsing config", err.Error())
+		log.Fatal("error parsing config:", err.Error())
 	}
 
 	return config
